@@ -9,6 +9,12 @@ variable "region" {
   default     = "us-east-1"
 }
 
+variable "VPCName" {
+  description = "The name of the VPC"
+}
+
+
+
 variable "vpccidr" {
   description = "The CIDR block for the VPC"
   default     = "10.0.0.0/16"
@@ -56,16 +62,18 @@ resource "aws_vpc" "mainvpc" {
   cidr_block = var.vpccidr
 
   tags = {
-    Name = "Main VPC"
+    Name = var.VPCName
   }
 }
+
+
 
 resource "aws_subnet" "public_subnet_1" {
   cidr_block        = var.public_subnet_cidr_block_1
   vpc_id            = aws_vpc.mainvpc.id
   availability_zone = "${var.region}a"
   tags = {
-    Name = "publicsubnet-1"
+    Name = "publicsubnet-1-${var.VPCName}"
   }
 }
 
@@ -74,7 +82,7 @@ resource "aws_subnet" "public_subnet_2" {
   vpc_id            = aws_vpc.mainvpc.id
   availability_zone = "${var.region}b"
   tags = {
-    Name = "publicsubnet-2"
+    Name = "publicsubnet-2-${var.VPCName}"
   }
 }
 
@@ -83,7 +91,7 @@ resource "aws_subnet" "public_subnet_3" {
   vpc_id            = aws_vpc.mainvpc.id
   availability_zone = "${var.region}c"
   tags = {
-    Name = "publicsubnet-3"
+    Name = "publicsubnet-3-${var.VPCName}"
   }
 }
 
@@ -93,7 +101,7 @@ resource "aws_subnet" "private_subnet_1" {
   vpc_id            = aws_vpc.mainvpc.id
   availability_zone = "${var.region}a"
   tags = {
-    Name = "privatesubnet-1"
+    Name = "privatesubnet-1-${var.VPCName}"
   }
 }
 
@@ -102,7 +110,7 @@ resource "aws_subnet" "private_subnet_2" {
   vpc_id            = aws_vpc.mainvpc.id
   availability_zone = "${var.region}b"
   tags = {
-    Name = "privatesubnet-2"
+    Name = "privatesubnet-2-${var.VPCName}"
   }
 }
 
@@ -111,7 +119,7 @@ resource "aws_subnet" "private_subnet_3" {
   vpc_id            = aws_vpc.mainvpc.id
   availability_zone = "${var.region}c"
   tags = {
-    Name = "privatesubnet-3"
+    Name = "privatesubnet-3-${var.VPCName}"
   }
 }
 
@@ -120,7 +128,7 @@ resource "aws_internet_gateway" "Internetgateway" {
   vpc_id = aws_vpc.mainvpc.id
 
   tags = {
-    Name = "InternetGateway"
+    Name = "InternetGateway-${var.VPCName}"
   }
 }
 
@@ -134,7 +142,7 @@ resource "aws_route_table" "publicroutetable" {
   }
 
   tags = {
-    Name = "publicroutetable"
+    Name = "publicroutetable-${var.VPCName}"
   }
 }
 
@@ -160,7 +168,7 @@ resource "aws_route_table" "privateroutetable" {
   vpc_id = aws_vpc.mainvpc.id
 
   tags = {
-    Name = "privateroutetable"
+    Name = "privateroutetable-${var.VPCName}"
   }
 }
 
