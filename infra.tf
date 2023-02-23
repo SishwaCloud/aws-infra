@@ -1,192 +1,151 @@
-variable "profile" {
-  description = "The AWS profile to use"
-  default     = "demo"
-
-}
-
-variable "region" {
-  description = "The AWS region in which to create the VPC and subnets"
-  default     = "us-east-1"
-}
-
-variable "VPCName" {
-  description = "The name of the VPC"
-}
-
-
-
-variable "vpccidr" {
-  description = "The CIDR block for the VPC"
-  default     = "10.0.0.0/16"
-}
-
-variable "public_subnet_cidr_block_1" {
-  description = "The CIDR block for the first public subnet."
-  default     = "10.0.1.0/24"
-
-}
-
-variable "public_subnet_cidr_block_2" {
-  description = "The CIDR block for the second public subnet."
-  default     = "10.0.2.0/24"
-
-}
-variable "public_subnet_cidr_block_3" {
-  description = "The CIDR block for the third public subnet."
-  default     = "10.0.3.0/24"
-}
-
-
-variable "private_subnet_cidr_block_1" {
-  description = "The CIDR block for the first private subnet."
-  default     = "10.0.4.0/24"
-}
-
-variable "private_subnet_cidr_block_2" {
-  description = "The CIDR block for the second private subnet."
-  default     = "10.0.5.0/24"
-}
-
-variable "private_subnet_cidr_block_3" {
-  description = "The CIDR block for the third private subnet."
-  default     = "10.0.6.0/24"
-}
-
-
 provider "aws" {
   region  = var.region
   profile = var.profile
 }
 
-resource "aws_vpc" "mainvpc" {
-  cidr_block = var.vpccidr
+resource "aws_vpc" "my_vpc" {
+  cidr_block = var.vpc_cidr_block
 
   tags = {
-    Name = var.VPCName
+    Name = var.VpcName
   }
 }
 
+resource "aws_internet_gateway" "my_igw" {
+  vpc_id = aws_vpc.my_vpc.id
 
-
-resource "aws_subnet" "public_subnet_1" {
-  cidr_block        = var.public_subnet_cidr_block_1
-  vpc_id            = aws_vpc.mainvpc.id
-  availability_zone = "${var.region}a"
   tags = {
-    Name = "publicsubnet-1-${var.VPCName}"
+    Name = "${var.VpcName}-my-igw"
   }
 }
 
-resource "aws_subnet" "public_subnet_2" {
-  cidr_block        = var.public_subnet_cidr_block_2
-  vpc_id            = aws_vpc.mainvpc.id
-  availability_zone = "${var.region}b"
+resource "aws_subnet" "public_subnets" {
+  count             = length(data.aws_availability_zones.available.names) > 2 ? 3 : 2
+  cidr_block        = var.public_subnet_cidr_blocks[count.index]
+  vpc_id            = aws_vpc.my_vpc.id
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+
   tags = {
-    Name = "publicsubnet-2-${var.VPCName}"
+    Name = "${var.VpcName}-public-subnet-${count.index + 1}"
   }
 }
 
-resource "aws_subnet" "public_subnet_3" {
-  cidr_block        = var.public_subnet_cidr_block_3
-  vpc_id            = aws_vpc.mainvpc.id
-  availability_zone = "${var.region}c"
+resource "aws_subnet" "private_subnets" {
+  count             = length(data.aws_availability_zones.available.names) > 2 ? 3 : 2
+  cidr_block        = var.private_subnet_cidr_blocks[count.index]
+  vpc_id            = aws_vpc.my_vpc.id
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+
   tags = {
-    Name = "publicsubnet-3-${var.VPCName}"
+    Name = " ${var.VpcName}-private-subnet-${count.index + 1} "
   }
 }
 
-
-resource "aws_subnet" "private_subnet_1" {
-  cidr_block        = var.private_subnet_cidr_block_1
-  vpc_id            = aws_vpc.mainvpc.id
-  availability_zone = "${var.region}a"
-  tags = {
-    Name = "privatesubnet-1-${var.VPCName}"
-  }
-}
-
-resource "aws_subnet" "private_subnet_2" {
-  cidr_block        = var.private_subnet_cidr_block_2
-  vpc_id            = aws_vpc.mainvpc.id
-  availability_zone = "${var.region}b"
-  tags = {
-    Name = "privatesubnet-2-${var.VPCName}"
-  }
-}
-
-resource "aws_subnet" "private_subnet_3" {
-  cidr_block        = var.private_subnet_cidr_block_3
-  vpc_id            = aws_vpc.mainvpc.id
-  availability_zone = "${var.region}c"
-  tags = {
-    Name = "privatesubnet-3-${var.VPCName}"
-  }
-}
-
-
-resource "aws_internet_gateway" "Internetgateway" {
-  vpc_id = aws_vpc.mainvpc.id
-
-  tags = {
-    Name = "InternetGateway-${var.VPCName}"
-  }
-}
-
-
-resource "aws_route_table" "publicroutetable" {
-  vpc_id = aws_vpc.mainvpc.id
+resource "aws_route_table" "public_route_table" {
+  vpc_id = aws_vpc.my_vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.Internetgateway.id
+    gateway_id = aws_internet_gateway.my_igw.id
   }
 
   tags = {
-    Name = "publicroutetable-${var.VPCName}"
+    Name = "${var.VpcName}-public-route-table"
   }
 }
 
-
-resource "aws_route_table_association" "publicsubnet-1associations" {
-  subnet_id      = aws_subnet.public_subnet_1.id
-  route_table_id = aws_route_table.publicroutetable.id
-}
-
-
-resource "aws_route_table_association" "publicsubnet-2associations" {
-  subnet_id      = aws_subnet.public_subnet_2.id
-  route_table_id = aws_route_table.publicroutetable.id
-}
-
-resource "aws_route_table_association" "publicsubnet-3associations" {
-  subnet_id      = aws_subnet.public_subnet_3.id
-  route_table_id = aws_route_table.publicroutetable.id
-}
-
-
-resource "aws_route_table" "privateroutetable" {
-  vpc_id = aws_vpc.mainvpc.id
+resource "aws_route_table" "private_route_table" {
+  vpc_id = aws_vpc.my_vpc.id
 
   tags = {
-    Name = "privateroutetable-${var.VPCName}"
+    Name = "${var.VpcName}-private-route-table"
   }
 }
 
+resource "aws_route_table_association" "public_subnet_associations" {
+  count          = length(aws_subnet.public_subnets)
+  subnet_id      = aws_subnet.public_subnets[count.index].id
+  route_table_id = aws_route_table.public_route_table.id
+}
 
-resource "aws_route_table_association" "privatesubnet-1associations" {
-  subnet_id      = aws_subnet.private_subnet_1.id
-  route_table_id = aws_route_table.privateroutetable.id
+resource "aws_route_table_association" "private_subnet_associations" {
+  count          = length(aws_subnet.private_subnets)
+  subnet_id      = aws_subnet.private_subnets[count.index].id
+  route_table_id = aws_route_table.private_route_table.id
+}
+
+resource "aws_security_group" "app_security_group" {
+  name_prefix = "app_security_group"
+
+  vpc_id = aws_vpc.my_vpc.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Add ingress rule for the port your application runs on
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Launch the EC2 instance
+resource "aws_instance" "example_instance" {
+  ami                         = var.ami_id
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.public_subnets[0].id
+  vpc_security_group_ids      = [aws_security_group.app_security_group.id]
+  associate_public_ip_address = true
+  root_block_device {
+    volume_type           = "gp2"
+    volume_size           = 50
+    delete_on_termination = true
+  }
+  # Disable termination protection
+  disable_api_termination = false
 }
 
 
-resource "aws_route_table_association" "privatesubnet-2associations" {
-  subnet_id      = aws_subnet.private_subnet_2.id
-  route_table_id = aws_route_table.privateroutetable.id
+data "aws_availability_zones" "available" {}
+
+output "vpc_id" {
+  value = aws_vpc.my_vpc.id
 }
 
-resource "aws_route_table_association" "privatesubnet-3associations" {
-  subnet_id      = aws_subnet.private_subnet_3.id
-  route_table_id = aws_route_table.privateroutetable.id
+output "public_subnet_ids" {
+  value = aws_subnet.public_subnets.*.id
 }
 
+output "private_subnet_ids" {
+  value = aws_subnet.private_subnets.*.id
+}
 
+output "internet_gateway_id" {
+  value = aws_internet_gateway.my_igw.id
+}
