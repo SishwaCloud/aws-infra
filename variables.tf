@@ -32,5 +32,10 @@ variable "ami_id" {
 
 variable "VpcName" {
   description = "The AWS VPC Name to use"
+}
 
+variable "db_port" {
+  type        = number
+  description = "The port to use for the database"
+  default     = 3306
 }
