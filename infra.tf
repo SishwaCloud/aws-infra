@@ -107,8 +107,8 @@ resource "aws_security_group" "app_security_group" {
 
   # Add ingress rule for the port your application runs on
   ingress {
-    from_port   = 3000
-    to_port     = 3000
+    from_port   = var.server_port
+    to_port     = var.server_port
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -140,7 +140,7 @@ resource "aws_instance" "example_instance" {
   echo DB_USER=${aws_db_instance.db_instance.username} >> /etc/environment
   echo DB_PASSWORD=${aws_db_instance.db_instance.password} >> /etc/environment
   echo DB_NAME=${aws_db_instance.db_instance.db_name} >> /etc/environment
-  echo NODE_PORT="3000" >> /etc/environment
+  echo NODE_PORT=${var.server_port} >> /etc/environment
   echo DB_PORT=${var.db_port} >> /etc/environment
   echo S3_BUCKET_NAME=${aws_s3_bucket.private_bucket.bucket} >> /etc/environment
   sudo systemctl daemon-reload
@@ -160,8 +160,8 @@ resource "aws_security_group" "database_security_group" {
 
   ingress {
     description     = "mysql/aurora access"
-    from_port       = 3306
-    to_port         = 3306
+    from_port       = var.db_port
+    to_port         = var.db_port
     protocol        = "tcp"
     security_groups = [aws_security_group.app_security_group.id]
   }
@@ -182,13 +182,14 @@ resource "aws_db_instance" "db_instance" {
   engine_version         = "8.0.31"
   multi_az               = "false"
   identifier             = "csye6225"
-  username               = "csye6225"
-  password               = "Sishwareddy11" //var.db_password
+  username               = var.dbusername
+  password               = var.dbpassword //var.db_password
   instance_class         = "db.t3.micro"
   allocated_storage      = 10
   db_subnet_group_name   = aws_db_subnet_group.private_subnet.name
   vpc_security_group_ids = [aws_security_group.database_security_group.id]
-  db_name                = "csye6225"
+  parameter_group_name   = aws_db_parameter_group.db.name
+  db_name                = var.dbname
   skip_final_snapshot    = "true"
 }
 
@@ -219,6 +220,16 @@ resource "aws_s3_bucket" "private_bucket" {
   }
 }
 
+resource "aws_s3_bucket_public_access_block" "examplebucket" {
+  bucket = aws_s3_bucket.private_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+
 resource "random_id" "random_bucket_suffix" {
   byte_length = 4
 }
@@ -234,7 +245,9 @@ resource "aws_iam_policy" "webapp_s3_policy" {
     Statement = [
       {
         Action = [
-          "s3:*"
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject"
         ]
         Effect = "Allow"
         Resource = [
@@ -278,6 +291,15 @@ resource "aws_iam_instance_profile" "profile" {
   role = aws_iam_role.ec2_csye6225_role.name
 }
 
+
+
+resource "aws_route53_record" "example_record" {
+  zone_id = var.zone_id
+  name    = var.domain_name
+  type    = "A"
+  ttl     = "300"
+  records = [aws_instance.example_instance.public_ip]
+}
 
 
 data "aws_availability_zones" "available" {}
