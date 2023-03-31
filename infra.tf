@@ -302,6 +302,26 @@ resource "aws_route53_record" "example_record" {
 }
 
 
+data "aws_iam_policy" "CloudWatchAgentServerPolicy" {
+  arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "EC2-CW" {
+  role       = aws_iam_role.ec2_csye6225_role.name
+  policy_arn = data.aws_iam_policy.CloudWatchAgentServerPolicy.arn
+}
+
+resource "aws_cloudwatch_log_group" "csye" {
+  name = "csye6225"
+}
+
+resource "aws_cloudwatch_log_stream" "webapp" {
+  name           = "webapp"
+  log_group_name = aws_cloudwatch_log_group.csye.name
+}
+
+
+
 data "aws_availability_zones" "available" {}
 
 output "vpc_id" {
