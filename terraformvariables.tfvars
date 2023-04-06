@@ -8,12 +8,12 @@ dbpassword                 = "Sishwareddy11"
 dbname                     = "csye6225"
 db_port                    = "3306"
 server_port                = "3000"
-ami_id                     = "ami-0a538b7fa6b6b237c"
+ami_id                     = "ami-0bf54c1722e585075"
 
 #dev
-# profile                    = "dev"
-# domain_name                = "dev.sishwa.me"
-# zone_id                    = "Z09656563M32KNJFPC4J0"
+# profile     = "dev"
+# domain_name = "dev.sishwa.me"
+# zone_id     = "Z09656563M32KNJFPC4J0"
 
 #demo
 profile     = "demo"
