@@ -8,7 +8,9 @@ dbpassword                 = "Sishwareddy11"
 dbname                     = "csye6225"
 db_port                    = "3306"
 server_port                = "3000"
-ami_id                     = "ami-0bf54c1722e585075"
+environment                = "demo"
+VpcName                    = "MainVpc"
+ami_id                     = "ami-0bdd609a600d970c9"
 
 #dev
 # profile     = "dev"
