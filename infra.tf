@@ -4,26 +4,6 @@ provider "aws" {
   profile = var.profile
 }
 
-
-# data "aws_ami" "latest" {
-#   most_recent = true
-
-#   filter {
-#     name   = "name"
-#     values = ["csye6225_*"]
-#   }
-
-#   filter {
-#     name   = "virtualization-type"
-#     values = ["hvm"]
-#   }
-
-#   owners = ["amazon"]
-
-# }
-
-
-
 resource "aws_vpc" "my_vpc" {
   cidr_block = var.vpc_cidr_block
 
@@ -95,82 +75,6 @@ resource "aws_route_table_association" "private_subnet_associations" {
   route_table_id = aws_route_table.private_route_table.id
 }
 
-
-
-
-# resource "aws_security_group" "app_security_group" {
-#   name_prefix = "app_security_group"
-
-#   vpc_id = aws_vpc.my_vpc.id
-
-#   ingress {
-#     from_port   = 22
-#     to_port     = 22
-#     protocol    = "tcp"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-
-#   ingress {
-#     from_port   = 80
-#     to_port     = 80
-#     protocol    = "tcp"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-
-#   ingress {
-#     from_port   = 443
-#     to_port     = 443
-#     protocol    = "tcp"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-
-#   # Add ingress rule for the port your application runs on
-#   ingress {
-#     from_port   = var.server_port
-#     to_port     = var.server_port
-#     protocol    = "tcp"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-#   egress {
-#     from_port   = 0
-#     to_port     = 0
-#     protocol    = "-1"
-#     cidr_blocks = ["0.0.0.0/0"]
-#   }
-# }
-
-# Launch the EC2 instance
-# resource "aws_instance" "example_instance" {
-#   ami                         = data.aws_ami.latest.id
-#   instance_type               = "t2.micro"
-#   subnet_id                   = aws_subnet.public_subnets[0].id
-#   vpc_security_group_ids      = [aws_security_group.webapp_security_group.id]
-#   associate_public_ip_address = true
-#   root_block_device {
-#     volume_type           = "gp2"
-#     volume_size           = 50
-#     delete_on_termination = true
-#   }
-
-#   iam_instance_profile = aws_iam_instance_profile.profile.name
-#   user_data            = <<EOF
-# 		#! /bin/bash
-#   echo DB_HOST=${aws_db_instance.db_instance.address} >> /etc/environment
-#   echo DB_USER=${aws_db_instance.db_instance.username} >> /etc/environment
-#   echo DB_PASSWORD=${aws_db_instance.db_instance.password} >> /etc/environment
-#   echo DB_NAME=${aws_db_instance.db_instance.db_name} >> /etc/environment
-#   echo NODE_PORT=${var.server_port} >> /etc/environment
-#   echo DB_PORT=${var.db_port} >> /etc/environment
-#   echo S3_BUCKET_NAME=${aws_s3_bucket.private_bucket.bucket} >> /etc/environment
-#   sudo systemctl daemon-reload
-#   sudo systemctl restart nodeapp
-# 	EOF
-
-
-#   # Disable termination protection
-#   disable_api_termination = false
-# }
-
 # create security group for the database
 resource "aws_security_group" "database_security_group" {
   name        = "database security group"
@@ -195,6 +99,11 @@ resource "aws_db_subnet_group" "private_subnet" {
   name       = "database"
 }
 
+resource "aws_kms_key" "b" {
+  description             = "RDS key 1"
+  deletion_window_in_days = 10
+}
+
 # create the rds instance
 resource "aws_db_instance" "db_instance" {
   engine                 = "mysql"
@@ -210,6 +119,8 @@ resource "aws_db_instance" "db_instance" {
   parameter_group_name   = aws_db_parameter_group.db.name
   db_name                = var.dbname
   skip_final_snapshot    = "true"
+  storage_encrypted      = "true"
+  kms_key_id             = aws_kms_key.b.arn
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "s3" {
@@ -363,16 +274,6 @@ output "internet_gateway_id" {
   value = aws_internet_gateway.my_igw.id
 }
 
-# output "latest_ami" {
-#   value = data.aws_ami.latest.id
-# }
-
-
-
-
-
-
-
 
 resource "aws_security_group" "webapp_security_group" {
   name_prefix = "webapp_security_group"
@@ -406,12 +307,6 @@ resource "aws_security_group" "load_balancer_security_group" {
   name        = "load_balancer_security_group"
   description = "Security group for the load balancer"
   vpc_id      = aws_vpc.my_vpc.id
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   ingress {
     from_port   = 443
@@ -465,9 +360,10 @@ resource "aws_lb" "webapp_lb" {
 # Listener
 resource "aws_lb_listener" "listener" {
   load_balancer_arn = aws_lb.webapp_lb.arn
-  port              = "80"
-  protocol          = "HTTP"
+  port              = "443"
+  protocol          = "HTTPS"
 
+  certificate_arn = "arn:aws:acm:us-east-1:939479158425:certificate/0bee7ffa-760b-4e2c-8df4-b8efda5d0923"
   default_action {
     target_group_arn = aws_lb_target_group.target_group.arn
     type             = "forward"
@@ -490,6 +386,64 @@ locals {
 	EOF
 }
 
+resource "aws_kms_key" "a" {
+  description             = "EBS key 1"
+  deletion_window_in_days = 10
+}
+
+resource "aws_kms_key_policy" "example" {
+  key_id = aws_kms_key.a.id
+  policy = jsonencode({
+    Id = "key-consolepolicy-1"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          "AWS" : "arn:aws:iam::939479158425:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow use of the key",
+        Effect = "Allow",
+        Principal = {
+          "AWS" : "arn:aws:iam::939479158425:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow attachment of persistent resources",
+        Effect = "Allow",
+        Principal = {
+          "AWS" : "arn:aws:iam::939479158425:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+        },
+        Action = [
+          "kms:CreateGrant",
+          "kms:ListGrants",
+          "kms:RevokeGrant"
+        ],
+        Resource = "*",
+        Condition = {
+          Bool = {
+            "kms:GrantIsForAWSResource" : "true"
+          }
+        }
+      }
+    ]
+
+    Version = "2012-10-17"
+  })
+}
+
 # Create a launch template
 resource "aws_launch_template" "webapp_launch_template" {
   name          = "webapp-launch-template"
@@ -506,6 +460,8 @@ resource "aws_launch_template" "webapp_launch_template" {
       volume_size           = 50
       volume_type           = "gp2"
       delete_on_termination = true
+      encrypted             = "true"
+      kms_key_id            = aws_kms_key.a.arn
     }
   }
   user_data = base64encode(local.user_data_ec2)
@@ -608,12 +564,6 @@ resource "aws_autoscaling_attachment" "webapp-autoscaling-group_attachment" {
   autoscaling_group_name = aws_autoscaling_group.webapp-autoscaling-group.name
   alb_target_group_arn   = aws_lb_target_group.target_group.arn
 }
-
-
-
-
-
-
 
 
 output "load_balancer_dns_name" {
